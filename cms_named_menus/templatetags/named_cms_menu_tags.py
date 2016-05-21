@@ -7,7 +7,6 @@ from django.core.exceptions import ObjectDoesNotExist
 import logging
 from menus.menu_pool import menu_pool
 from cms.api import get_page_draft
-from cms.utils.moderator import use_draft
 from cms.models.pagemodel import Page
 try:
     from cms.menu import page_to_node
@@ -46,14 +45,19 @@ class ShowMultipleMenu(ShowMenu):
                         'extra_active': kwargs.get('extra_active'),
                         'namespace': kwargs.get('namespace')
                         })
-
+            
         try:
             named_menu = CMSNamedMenu.objects.get(name__iexact=menu_name).pages
         except ObjectDoesNotExist:
             logging.warn("Named CMS Menu %s not found" % menu_name)
             return context
 
-        nodes = menu_pool.get_nodes(context['request'], kwargs['namespace'], kwargs['root_id'])
+        if hasattr(menu_pool, 'get_renderer'):
+            # Django CMS >= 3.3
+            renderer = menu_pool.get_renderer(context['request'])  # @UndefinedVariable
+        else:
+            renderer = menu_pool
+        nodes = renderer.get_nodes(context['request'], kwargs['namespace'], kwargs['root_id'])
 
         context.update({
             'children': self.arrange_nodes(nodes, named_menu, namespace=kwargs['namespace'])
@@ -87,7 +91,7 @@ class ShowMultipleMenu(ShowMenu):
 
         return item_node
 
-    def get_node_by_id(self, id, nodes, namespace=None):
+    def get_node_by_id(self, id, nodes, namespace=None):  # @ReservedAssignment
 
         final_node = None
 
